@@ -1,2 +1,4 @@
 # flong
-handle long float with specify float digits
+---
+> MaoHuPi &copy; 2024  
+> handle long float with specify float digits
