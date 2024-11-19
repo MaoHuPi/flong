@@ -5,6 +5,8 @@
  */
 
 class Flong {
+	static ZERO = new this({ valueString: '0' });
+	static ONE = new this({ valueString: '1' });
 	constructor({ valueString = '', floatDigits = 50 }) {
 		if (valueString == '') {
 			this.floatDigits = floatDigits;
@@ -79,121 +81,359 @@ class Flong {
 		return value;
 	}
 	static add(a, b) {
-		let newFloatDigits = Math.max(a.floatDigits, b.floatDigits);
-		let r = new this({ floatDigits: a.floatDigits });
-		r.value = Flong.shiftBigInt(a.value, newFloatDigits - a.floatDigits) + Flong.shiftBigInt(b.value, newFloatDigits - b.floatDigits);
-		return r;
+		if (a.type == 'partial' || b.type == 'partial') {
+			return {
+				type: 'partial',
+				function: () => this.add(a.function ? a.function() : a, b.function ? b.function() : b),
+				derivative: () => this.add(a.derivative ? a.derivative() : Flong.ZERO, b.derivative ? b.derivative() : Flong.ZERO)
+			};
+		} else {
+			let newFloatDigits = Math.max(a.floatDigits, b.floatDigits);
+			let r = new this({ floatDigits: a.floatDigits });
+			r.value = Flong.shiftBigInt(a.value, newFloatDigits - a.floatDigits) + Flong.shiftBigInt(b.value, newFloatDigits - b.floatDigits);
+			return r;
+		}
 	}
 	static sub(a, b) {
-		let newFloatDigits = Math.max(a.floatDigits, b.floatDigits);
-		let r = new this({ floatDigits: a.floatDigits });
-		r.value = Flong.shiftBigInt(a.value, newFloatDigits - a.floatDigits) - Flong.shiftBigInt(b.value, newFloatDigits - b.floatDigits);
-		return r;
+		if (a.type == 'partial' || b.type == 'partial') {
+			return {
+				type: 'partial',
+				function: () => this.sub(a.function ? a.function() : a, b.function ? b.function() : b),
+				derivative: () => this.sub(a.derivative ? a.derivative() : Flong.ZERO, b.derivative ? b.derivative() : Flong.ZERO)
+			};
+		} else {
+			let newFloatDigits = Math.max(a.floatDigits, b.floatDigits);
+			let r = new this({ floatDigits: a.floatDigits });
+			r.value = Flong.shiftBigInt(a.value, newFloatDigits - a.floatDigits) - Flong.shiftBigInt(b.value, newFloatDigits - b.floatDigits);
+			return r;
+		}
 	}
 	static mul(a, b) {
-		let oriFloatDigits = a.floatDigits + b.floatDigits;
-		let newFloatDigits = Math.max(a.floatDigits, b.floatDigits);
+		if (a.type == 'partial' || b.type == 'partial') {
+			return {
+				type: 'partial',
+				function: () => this.mul(a.function ? a.function() : a, b.function ? b.function() : b),
+				derivative: () => this.add(this.mul(a.derivative ? a.derivative() : Flong.ZERO, b.function ? b.function() : b), this.mul(a.function ? a.function() : a, b.derivative ? b.derivative() : Flong.ZERO))
+			};
+		} else {
+			let oriFloatDigits = a.floatDigits + b.floatDigits;
+			let newFloatDigits = Math.max(a.floatDigits, b.floatDigits);
 
-		let r = new this({ floatDigits: newFloatDigits });
-		r.value = Flong.shiftBigInt(a.value * b.value, newFloatDigits - oriFloatDigits);
-		return r;
+			let r = new this({ floatDigits: newFloatDigits });
+			r.value = Flong.shiftBigInt(a.value * b.value, newFloatDigits - oriFloatDigits);
+			return r;
+		}
 	}
 	static div(a, b) {
-		let r = new this({ floatDigits: a.floatDigits });
-		r.value = Flong.shiftBigInt(a.value, b.floatDigits) / b.value;
-		return r;
+		if (a.type == 'partial' || b.type == 'partial') {
+			return {
+				type: 'partial',
+				function: () => this.div(a.function ? a.function() : a, b.function ? b.function() : b),
+				derivative: () => this.div(this.sub(this.mul(a.derivative ? a.derivative() : Flong.ZERO, b.function ? b.function() : b), this.mul(a.function ? a.function() : a, b.derivative ? b.derivative() : Flong.ZERO)), this.mul(b.function ? b.function() : b, b.function ? b.function() : b))
+			};
+		} else {
+			let r = new this({ floatDigits: a.floatDigits });
+			r.value = Flong.shiftBigInt(a.value, b.floatDigits) / b.value;
+			return r;
+		}
 	}
 }
 
-function f(x, y) {
-	return Flong.add(
-		Flong.sub(
-			Flong.sub(
-				Flong.mul(x, x),
-				Flong.mul(y, y)
-			),
-			new Flong({ valueString: '9e-9' })
-		),
-		Flong.mul(
-			new Flong({ valueString: '9e-8' }),
-			x
-		)
-	)
-}
-function fx(x, y) {
-	return Flong.add(
-		Flong.mul(new Flong({ valueString: '2' }), x),
-		new Flong({ valueString: '9e-8' })
-	)
-}
-function fy(x, y) {
-	return Flong.mul(new Flong({ valueString: '-2' }), y);
-}
-function g(x, y) {
-	return Flong.add(
-		Flong.add(
-			Flong.add(
-				Flong.mul(x, y),
-				Flong.mul(Flong.sub(new Flong({ valueString: '1e-1' }), new Flong({ valueString: '1e-7' })), x)
-			),
-			Flong.mul(Flong.add(new Flong({ valueString: '1e-1' }), new Flong({ valueString: '1e-7' })), y)
-		),
-		Flong.mul(y, y)
-	)
-}
-function gx(x, y) {
-	return Flong.add(
-		y,
-		Flong.sub(new Flong({ valueString: '1e-1' }), new Flong({ valueString: '1e-7' }))
-	)
-}
-function gy(x, y) {
-	return Flong.add(
-		Flong.add(
-			x,
-			Flong.add(new Flong({ valueString: '1e-1' }), new Flong({ valueString: '1e-7' }))
-		),
-		Flong.mul(new Flong({ valueString: '2' }), y)
-	)
-}
-function phi(x, y) {
-	let denominator =
-		Flong.sub(
-			Flong.mul(fx(x, y), gy(x, y)),
-			Flong.mul(gx(x, y), fy(x, y))
-		);
-	return [
-		Flong.sub(
-			x,
-			Flong.div(
+class NumericalAnalysis {
+	static newtonsMethod1D({ f, x0 }) {
+		let xValue = Flong.ZERO, getX = () => xValue;
+		let
+			_fPrime = f(
+				{ type: 'partial', function: getX, derivative: () => Flong.ONE }
+			).derivative,
+			fPrime = (x) => {
+				xValue = x;
+				return _fPrime();
+			};
+		function phi(x) {
+			return Flong.sub(
+				x,
+				Flong.div(
+					f(x),
+					fPrime(x)
+				)
+			);
+		}
+		let x = x0;
+		// console.log(x.toString());
+		let lastX = '';
+		for (let i = 0; i < 100; i++) {
+			x = phi(x);
+			let thisX = x.toString();
+			if (thisX == lastX) break;
+			// console.log(thisX);
+			lastX = thisX;
+		}
+		return x;
+	}
+	static newtonsMethod2D({ f, g, x0, y0 }) {
+		let xValue = Flong.ZERO, getX = () => xValue,
+			yValue = Flong.ZERO, getY = () => yValue;
+		let
+			_fx = f(
+				{ type: 'partial', function: getX, derivative: () => Flong.ONE },
+				{ type: 'partial', function: getY, derivative: () => Flong.ZERO }
+			).derivative,
+			_fy = f(
+				{ type: 'partial', function: getX, derivative: () => Flong.ZERO },
+				{ type: 'partial', function: getY, derivative: () => Flong.ONE }
+			).derivative,
+			_gx = g(
+				{ type: 'partial', function: getX, derivative: () => Flong.ONE },
+				{ type: 'partial', function: getY, derivative: () => Flong.ZERO }
+			).derivative,
+			_gy = g(
+				{ type: 'partial', function: getX, derivative: () => Flong.ZERO },
+				{ type: 'partial', function: getY, derivative: () => Flong.ONE }
+			).derivative;
+		let
+			fx = (x, y) => {
+				xValue = x;
+				yValue = y;
+				return _fx();
+			},
+			fy = (x, y) => {
+				xValue = x;
+				yValue = y;
+				return _fy();
+			},
+			gx = (x, y) => {
+				xValue = x;
+				yValue = y;
+				return _gx();
+			},
+			gy = (x, y) => {
+				xValue = x;
+				yValue = y;
+				return _gy();
+			};
+		function phi(x, y) {
+			let denominator =
 				Flong.sub(
-					Flong.mul(f(x, y), gy(x, y)),
-					Flong.mul(g(x, y), fy(x, y))
-				),
-				denominator
-			)
-		),
-		Flong.sub(
-			y,
-			Flong.div(
+					Flong.mul(fx(x, y), gy(x, y)),
+					Flong.mul(gx(x, y), fy(x, y))
+				);
+			return [
 				Flong.sub(
-					Flong.mul(g(x, y), fx(x, y)),
-					Flong.mul(f(x, y), gx(x, y))
+					x,
+					Flong.div(
+						Flong.sub(
+							Flong.mul(f(x, y), gy(x, y)),
+							Flong.mul(g(x, y), fy(x, y))
+						),
+						denominator
+					)
 				),
-				denominator
-			)
-		)
-	];
+				Flong.sub(
+					y,
+					Flong.div(
+						Flong.sub(
+							Flong.mul(g(x, y), fx(x, y)),
+							Flong.mul(f(x, y), gx(x, y))
+						),
+						denominator
+					)
+				)
+			];
+		}
+		let x = x0;
+		let y = y0;
+		// console.log(x.toString(), y.toString());
+		let lastX = '', lastY = ''
+		for (let i = 0; i < 100; i++) {
+			[x, y] = phi(x, y);
+			let [thisX, thisY] = [x.toString(), y.toString()];
+			if (thisX == lastX && thisY == lastY) break;
+			// console.log(thisX, thisY);
+			[lastX, lastY] = [thisX, thisY];
+		}
+		return [x, y];
+	}
 }
 
-let x = new Flong({ valueString: '9e-8' });
-let y = new Flong({ valueString: '1e-17' });
-console.log(x.toString(), y.toString());
-let lastX = '', lastY = ''
-for (let i = 0; i < 300; i++) {
-	[x, y] = phi(x, y);
-	let [thisX, thisY] = [x.toString(), y.toString()];
-	if(thisX == lastX && thisY == lastY) break;
-	console.log(thisX, thisY);
-	[lastX, lastY] = [thisX, thisY];
+// function f(x, y) {
+// 	return Flong.add(
+// 		Flong.sub(
+// 			Flong.sub(
+// 				Flong.mul(x, x),
+// 				Flong.mul(y, y)
+// 			),
+// 			new Flong({ valueString: '9e-9' })
+// 		),
+// 		Flong.mul(
+// 			new Flong({ valueString: '9e-8' }),
+// 			x
+// 		)
+// 	);
+// }
+// function fx(x, y) {
+// 	return Flong.add(
+// 		Flong.mul(new Flong({ valueString: '2' }), x),
+// 		new Flong({ valueString: '9e-8' })
+// 	);
+// }
+// function fy(x, y) {
+// 	return Flong.mul(new Flong({ valueString: '-2' }), y);
+// }
+// function g(x, y) {
+// 	return Flong.add(
+// 		Flong.add(
+// 			Flong.add(
+// 				Flong.mul(x, y),
+// 				Flong.mul(Flong.sub(new Flong({ valueString: '1e-1' }), new Flong({ valueString: '1e-7' })), x)
+// 			),
+// 			Flong.mul(Flong.add(new Flong({ valueString: '1e-1' }), new Flong({ valueString: '1e-7' })), y)
+// 		),
+// 		Flong.mul(y, y)
+// 	);
+// }
+// function gx(x, y) {
+// 	return Flong.add(
+// 		y,
+// 		Flong.sub(new Flong({ valueString: '1e-1' }), new Flong({ valueString: '1e-7' }))
+// 	);
+// }
+// function gy(x, y) {
+// 	return Flong.add(
+// 		Flong.add(
+// 			x,
+// 			Flong.add(new Flong({ valueString: '1e-1' }), new Flong({ valueString: '1e-7' }))
+// 		),
+// 		Flong.mul(new Flong({ valueString: '2' }), y)
+// 	);
+// }
+// console.log(...NumericalAnalysis.newtonsMethod2D({
+// 	f, fx, fy, 
+// 	g, gx, gy, 
+// 	x0: new Flong({ valueString: '9e-8' }), 
+// 	y0: new Flong({ valueString: '1e-17' })
+// }).map(n => n.toString()));
+
+function getH_H2S_mix_HSn(x) {
+	let L = new Flong({ valueString: '1' });
+	let K_a1 = new Flong({ valueString: '9e-8' });
+	let n_H2S = new Flong({ valueString: '0.1' });
+	let n_HSn = new Flong({ valueString: '0.1' });
+	function f(x1) {
+		return Flong.sub(
+			Flong.mul(
+				Flong.add(x1, x),
+				Flong.add(n_HSn, x1)
+			),
+			Flong.mul(
+				Flong.sub(n_H2S, x1),
+				Flong.mul(L, K_a1)
+			)
+		);
+	}
+	let x1 = NumericalAnalysis.newtonsMethod1D({
+		f: f, 
+		x0: new Flong({ valueString: '1' }),
+		y0: new Flong({ valueString: '1' })
+	});
+	return Flong.div(
+		Flong.add(x1, x),
+		L
+	);
 }
+
+function getH_H2S_mix_S2n(x) {
+	let L = new Flong({ valueString: '1' });
+	let K_a1 = new Flong({ valueString: '9e-8' });
+	let K_a2 = new Flong({ valueString: '1e-17' });
+	let n_H2S = new Flong({ valueString: '0.1' });
+	let n_S2n = new Flong({ valueString: '0.1' });
+	function f(x1, x2) {
+		return Flong.sub(
+			Flong.mul(
+				Flong.add(Flong.add(x1, x2), x),
+				Flong.sub(x1, x2)
+			),
+			Flong.mul(
+				Flong.sub(n_H2S, x1),
+				Flong.mul(L, K_a1)
+			)
+		);
+	}
+	function g(x1, x2) {
+		return Flong.sub(
+			Flong.mul(
+				Flong.add(Flong.add(x1, x2), x),
+				Flong.add(n_S2n, x2)
+			),
+			Flong.mul(
+				Flong.sub(x1, x2),
+				Flong.mul(L, K_a2)
+			)
+		);
+	}
+	let [x1, x2] = NumericalAnalysis.newtonsMethod2D({
+		f: f, g: g,
+		x0: new Flong({ valueString: '100' }),
+		y0: new Flong({ valueString: '100' })
+	});
+	return Flong.div(
+		Flong.add(Flong.add(x1, x2), x),
+		L
+	);
+}
+
+function getH_H2O(x) {
+	let L = new Flong({ valueString: '1' });
+	let K_w = new Flong({ valueString: '1e-14' });
+	let n_H2O = new Flong({ valueString: '0.1' });
+	function f(x1) {
+		return Flong.sub(
+			Flong.mul(
+				Flong.add(x1, x),
+				x1
+			),
+			Flong.mul(
+				Flong.sub(n_H2O, x1),
+				Flong.mul(L, K_w)
+			)
+		);
+	}
+	let x1 = NumericalAnalysis.newtonsMethod1D({
+		f: f,
+		x0: new Flong({ valueString: '1' }),
+		y0: new Flong({ valueString: '1' })
+	});
+	return Flong.div(
+		Flong.add(x1, x),
+		L
+	);
+}
+
+let getH = getH_H2S_mix_S2n;
+let list = [];
+for (let i = 0; i < 1000; i++) {
+	list.push([(i / 1000).toString(), getH(new Flong({ valueString: (i / 1000).toString() })).toString()]);
+}
+
+// neg velue count
+// console.log(list.filter(([x, H]) => H[0] == '-').length)
+
+// [H+]
+console.log(list.map(([x, H]) => `${x}\t${H}\n`).join(''));
+
+// pH
+// console.log(list.map(([x, H]) => [x, (parseFloat(H) >= 0 ? (-Math.log10(parseFloat(H))) : (14 + Math.log10(-parseFloat(H)))).toString()]).map(([x, H]) => `${x}\t${H}\n`).join(''));
+
+// p function
+// console.log(new Array(100).fill(0).map((n, i) => [i/100, i/100]).map(([x, H]) => [x, (parseFloat(H) >= 0 ? (-Math.log10(parseFloat(H))) : (14 + Math.log10(-parseFloat(H)))).toString()]).map(([x, H]) => `${x}\t${H}\n`).join(''));
+
+// derivative test
+// let a = Flong.ZERO, getA = () => a;
+// let b = Flong.ZERO; getB = () => b;
+// function test(x, y) {
+// 	return Flong.div(Flong.add(Flong.mul(new Flong({valueString: '5'}), Flong.mul(x, x)), Flong.mul(x, Flong.mul(y, y))), Flong.add(Flong.mul(x, x), Flong.mul(y, y)));
+// }
+// a = new Flong({ valueString: '20' });
+// b = new Flong({ valueString: '5' });
+// console.log(test({ type: 'partial', function: getA, derivative: () => Flong.ZERO }, { type: 'partial', function: getB, derivative: () => Flong.ONE }).derivative().toString())
