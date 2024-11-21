@@ -137,6 +137,39 @@ class Flong {
 			return r;
 		}
 	}
+	static det(matrix) {
+		if (matrix.length !== matrix[0].length) {
+			throw new Error('Can\'t calculate the determinant of the given matrix, which have different value between rows numbers and columns\'.');
+		} else {
+			if (matrix.length == 1) {
+				return matrix[0][0];
+			} else if (matrix.length == 2) {
+				return this.sub(
+					this.mul(matrix[0][0], matrix[1][1]),
+					this.mul(matrix[1][0], matrix[0][1])
+				);
+			} else if (matrix.length > 2) {
+				let sum = this.ZERO;
+				let i = 1;
+				for (let j = 1; j <= matrix.length; j++) {
+					let M = matrix.map((row => row.map(value => value)));
+					M.splice(i - 1, 1);
+					M.map(row => row.splice(j - 1, 1));
+					sum = this.add(
+						sum,
+						this.mul(
+							this.mul(
+								new Flong({ valueString: ((-1) ** (i + j)).toString() }),
+								matrix[i - 1][j - 1]
+							),
+							this.det(M)
+						)
+					);
+				}
+				return sum;
+			}
+		}
+	}
 }
 
 class NumericalAnalysis {
@@ -254,7 +287,105 @@ class NumericalAnalysis {
 		}
 		return [x, y];
 	}
+	static newtonsMethodND({ functions, initialValues }) {
+		if (functions.length !== initialValues.length) {
+			throw new Error('The function amount and initial value\'s must be the same. ');
+		}
+		let xiValue = initialValues.map(() => Flong.ZERO),
+			getXi = xiValue.map((_, i) => (() => xiValue[i])),
+			_fiXj = functions.map((f, i) => initialValues.map((x, j) => {
+				return functions[i](
+					...initialValues.map((y, k) => ({
+						type: 'partial',
+						function: getXi[k],
+						derivative: () => k == j ? Flong.ONE : Flong.ZERO
+					}))
+				).derivative;
+			})),
+			fiXj = functions.map((f, i) => initialValues.map((x, j) => {
+				return (...parameters) => {
+					parameters.map((value, k) => xiValue[k] = value);
+					return _fiXj[i][j]();
+				};
+			}));
+
+		function phi(...parameters) {
+			let denominator = Flong.det(functions.map((f, i) => initialValues.map((x, j) => {
+				return fiXj[i][j](...parameters);
+			})));
+			return initialValues.map((_, k) => {
+				return Flong.sub(
+					parameters[k], 
+					Flong.div(
+						Flong.det(functions.map((f, i) => initialValues.map((x, j) => {
+							return k == j ? functions[i](...parameters) : fiXj[i][j](...parameters);
+						}))),
+						denominator
+					)
+				);
+			});
+		}
+		let xi = [...initialValues];
+		let lastValues = initialValues.map(() => '');
+		for (let i = 0; i < 100; i++) {
+			xi = phi(...xi);
+			let currentValues = xi.map(n => n.toString());
+			if (currentValues.filter((n, j) => !(n == lastValues[j])).length == 0) break;
+			lastValues = currentValues;
+		}
+		return xi;
+	}
 }
+
+let tableExample = [
+	['type', 'H2S', 'HS-', 'S2-', 'H+'  , 'OH-' , 'NaOH', 'Na+', 'H2O', '(K)'    ], 
+	['init', '0.1', ''   , '0.1', '1e-7', '1e-7', ''    , ''   , '1'  , ''       ], 
+	['Vb'  , ''   , ''   , ''   , ''    , ''    , '0.1' , ''   , '1'  , ''       ], 
+	['x1'  , ''   , ''   , ''   , '1'   , '1'   , ''    , ''   , '-1' , '1.8e-16'], 
+	['x2'  , '-1' , '1'  , ''   , '1'   , ''    , ''    , ''   , ''   , '9e-8'   ], 
+	['x3'  , ''   , '-1' , '1'  , '1'   , ''    , ''    , ''   , ''   , '1e-17'  ], 
+	['x4'  , ''   , ''   , ''   , ''    , '1'   , '-1'  , '1'  , ''   , '3'      ], 
+];
+function tableTest(table) {
+	// let L = new Flong({ valueString: '1' });
+	// let K_a1 = new Flong({ valueString: '9e-8' });
+	// let K_a2 = new Flong({ valueString: '1e-17' });
+	// let n_H2S = new Flong({ valueString: '0.1' });
+	// let n_S2n = new Flong({ valueString: '0.1' });
+	// function f(x1, x2) {
+	// 	return Flong.sub(
+	// 		Flong.mul(
+	// 			Flong.add(Flong.add(x1, x2), x),
+	// 			Flong.sub(x1, x2)
+	// 		),
+	// 		Flong.mul(
+	// 			Flong.sub(n_H2S, x1),
+	// 			Flong.mul(L, K_a1)
+	// 		)
+	// 	);
+	// }
+	// function g(x1, x2) {
+	// 	return Flong.sub(
+	// 		Flong.mul(
+	// 			Flong.add(Flong.add(x1, x2), x),
+	// 			Flong.add(n_S2n, x2)
+	// 		),
+	// 		Flong.mul(
+	// 			Flong.sub(x1, x2),
+	// 			Flong.mul(L, K_a2)
+	// 		)
+	// 	);
+	// }
+	// let [x1, x2] = NumericalAnalysis.newtonsMethodND({
+	// 	functions: [f, g],
+	// 	initialValues: [new Flong({ valueString: '100' }), new Flong({ valueString: '100' })],
+	// });
+	// return Flong.div(
+	// 	Flong.add(Flong.add(x1, x2), x),
+	// 	L
+	// );
+}
+tableTest(tableExample);
 
 // function f(x, y) {
 // 	return Flong.add(
@@ -332,9 +463,8 @@ function getH_H2S_mix_HSn(x) {
 		);
 	}
 	let x1 = NumericalAnalysis.newtonsMethod1D({
-		f: f, 
-		x0: new Flong({ valueString: '1' }),
-		y0: new Flong({ valueString: '1' })
+		f: f,
+		x0: new Flong({ valueString: '1' })
 	});
 	return Flong.div(
 		Flong.add(x1, x),
@@ -377,6 +507,10 @@ function getH_H2S_mix_S2n(x) {
 		x0: new Flong({ valueString: '100' }),
 		y0: new Flong({ valueString: '100' })
 	});
+	// let [x1, x2] = NumericalAnalysis.newtonsMethodND({
+	// 	functions: [f, g],
+	// 	initialValues: [new Flong({ valueString: '100' }), new Flong({ valueString: '100' })],
+	// });
 	return Flong.div(
 		Flong.add(Flong.add(x1, x2), x),
 		L
@@ -401,8 +535,7 @@ function getH_H2O(x) {
 	}
 	let x1 = NumericalAnalysis.newtonsMethod1D({
 		f: f,
-		x0: new Flong({ valueString: '1' }),
-		y0: new Flong({ valueString: '1' })
+		x0: new Flong({ valueString: '1' })
 	});
 	return Flong.div(
 		Flong.add(x1, x),
@@ -420,10 +553,10 @@ for (let i = 0; i < 1000; i++) {
 // console.log(list.filter(([x, H]) => H[0] == '-').length)
 
 // [H+]
-console.log(list.map(([x, H]) => `${x}\t${H}\n`).join(''));
+// console.log(list.map(([x, H]) => `${x}\t${H}\n`).join(''));
 
 // pH
-// console.log(list.map(([x, H]) => [x, (parseFloat(H) >= 0 ? (-Math.log10(parseFloat(H))) : (14 + Math.log10(-parseFloat(H)))).toString()]).map(([x, H]) => `${x}\t${H}\n`).join(''));
+console.log(list.map(([x, H]) => [x, (parseFloat(H) >= 0 ? (-Math.log10(parseFloat(H))) : (14 + Math.log10(-parseFloat(H)))).toString()]).map(([x, H]) => `${x}\t${H}\n`).join(''));
 
 // p function
 // console.log(new Array(100).fill(0).map((n, i) => [i/100, i/100]).map(([x, H]) => [x, (parseFloat(H) >= 0 ? (-Math.log10(parseFloat(H))) : (14 + Math.log10(-parseFloat(H)))).toString()]).map(([x, H]) => `${x}\t${H}\n`).join(''));
@@ -437,3 +570,10 @@ console.log(list.map(([x, H]) => `${x}\t${H}\n`).join(''));
 // a = new Flong({ valueString: '20' });
 // b = new Flong({ valueString: '5' });
 // console.log(test({ type: 'partial', function: getA, derivative: () => Flong.ZERO }, { type: 'partial', function: getB, derivative: () => Flong.ONE }).derivative().toString())
+
+// let A = Flong.det([
+// 	[new Flong({ valueString: '-2' }), new Flong({ valueString: '-1' }), new Flong({ valueString: '2' })],
+// 	[new Flong({ valueString: '2' }), new Flong({ valueString: '1' }), new Flong({ valueString: '4' })],
+// 	[new Flong({ valueString: '-3' }), new Flong({ valueString: '3' }), new Flong({ valueString: '-1' })],
+// ])
+// console.log(A.toString());
