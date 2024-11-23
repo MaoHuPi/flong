@@ -80,6 +80,30 @@ class Flong {
 		}
 		return value;
 	}
+	static eq(a, b) {
+		let newFloatDigits = Math.max(a.floatDigits, b.floatDigits);
+		return Flong.shiftBigInt(a.value, newFloatDigits - a.floatDigits) == Flong.shiftBigInt(b.value, newFloatDigits - b.floatDigits);
+	}
+	static ne(a, b) {
+		let newFloatDigits = Math.max(a.floatDigits, b.floatDigits);
+		return Flong.shiftBigInt(a.value, newFloatDigits - a.floatDigits) != Flong.shiftBigInt(b.value, newFloatDigits - b.floatDigits);
+	}
+	static gt(a, b) {
+		let newFloatDigits = Math.max(a.floatDigits, b.floatDigits);
+		return Flong.shiftBigInt(a.value, newFloatDigits - a.floatDigits) > Flong.shiftBigInt(b.value, newFloatDigits - b.floatDigits);
+	}
+	static lt(a, b) {
+		let newFloatDigits = Math.max(a.floatDigits, b.floatDigits);
+		return Flong.shiftBigInt(a.value, newFloatDigits - a.floatDigits) < Flong.shiftBigInt(b.value, newFloatDigits - b.floatDigits);
+	}
+	static ge(a, b) {
+		let newFloatDigits = Math.max(a.floatDigits, b.floatDigits);
+		return Flong.shiftBigInt(a.value, newFloatDigits - a.floatDigits) >= Flong.shiftBigInt(b.value, newFloatDigits - b.floatDigits);
+	}
+	static le(a, b) {
+		let newFloatDigits = Math.max(a.floatDigits, b.floatDigits);
+		return Flong.shiftBigInt(a.value, newFloatDigits - a.floatDigits) <= Flong.shiftBigInt(b.value, newFloatDigits - b.floatDigits);
+	}
 	static add(a, b) {
 		if (a.type == 'partial' || b.type == 'partial') {
 			return {
@@ -132,9 +156,43 @@ class Flong {
 				derivative: () => this.div(this.sub(this.mul(a.derivative ? a.derivative() : Flong.ZERO, b.function ? b.function() : b), this.mul(a.function ? a.function() : a, b.derivative ? b.derivative() : Flong.ZERO)), this.mul(b.function ? b.function() : b, b.function ? b.function() : b))
 			};
 		} else {
+			// if (b.value == 0) return new Flong({ valueString: '1e100' });
 			let r = new this({ floatDigits: a.floatDigits });
 			r.value = Flong.shiftBigInt(a.value, b.floatDigits) / b.value;
 			return r;
+		}
+	}
+	static pow(a, b) {
+		if (a.type == 'partial' || b.type == 'partial') {
+			return {
+				type: 'partial',
+				function: () => this.pow(a.function ? a.function() : a, b.function ? b.function() : b),
+				derivative: () => this.mul(
+					this.mul(
+						b.function ? b.function() : b,
+						this.pow(
+							a.function ? a.function() : a,
+							this.sub(b.function ? b.function() : b, Flong.ONE)
+						)
+					),
+					a.derivative ? a.derivative() : Flong.ZERO
+				)
+			};
+		} else {
+			let bInt = this.shiftBigInt(b.value, -b.floatDigits);
+			let quotient = Flong.ONE;
+			if (bInt == 0n) {
+				quotient = Flong.ONE;
+			} else if (bInt > 0n) {
+				for (let i = 0n; i < bInt; i++) {
+					quotient = this.mul(quotient, a);
+				}
+			} else {
+				for (let i = 0n; i < -bInt; i++) {
+					quotient = this.div(quotient, a);
+				}
+			}
+			return quotient;
 		}
 	}
 	static det(matrix) {
@@ -193,13 +251,11 @@ class NumericalAnalysis {
 			);
 		}
 		let x = x0;
-		// console.log(x.toString());
 		let lastX = '';
 		for (let i = 0; i < 100; i++) {
 			x = phi(x);
 			let thisX = x.toString();
 			if (thisX == lastX) break;
-			// console.log(thisX);
 			lastX = thisX;
 		}
 		return x;
@@ -276,13 +332,11 @@ class NumericalAnalysis {
 		}
 		let x = x0;
 		let y = y0;
-		// console.log(x.toString(), y.toString());
 		let lastX = '', lastY = ''
 		for (let i = 0; i < 100; i++) {
 			[x, y] = phi(x, y);
 			let [thisX, thisY] = [x.toString(), y.toString()];
 			if (thisX == lastX && thisY == lastY) break;
-			// console.log(thisX, thisY);
 			[lastX, lastY] = [thisX, thisY];
 		}
 		return [x, y];
@@ -315,7 +369,7 @@ class NumericalAnalysis {
 			})));
 			return initialValues.map((_, k) => {
 				return Flong.sub(
-					parameters[k], 
+					parameters[k],
 					Flong.div(
 						Flong.det(functions.map((f, i) => initialValues.map((x, j) => {
 							return k == j ? functions[i](...parameters) : fiXj[i][j](...parameters);
@@ -337,229 +391,223 @@ class NumericalAnalysis {
 	}
 }
 
-let tableExample = [
-	['type', 'H2S', 'HS-', 'S2-', 'H+'  , 'OH-' , 'NaOH', 'Na+', 'H2O', '(K)'    ], 
-	['init', '0.1', ''   , '0.1', '1e-7', '1e-7', ''    , ''   , '1'  , ''       ], 
-	['Vb'  , ''   , ''   , ''   , ''    , ''    , '0.1' , ''   , '1'  , ''       ], 
-	['x1'  , ''   , ''   , ''   , '1'   , '1'   , ''    , ''   , '-1' , '1.8e-16'], 
-	['x2'  , '-1' , '1'  , ''   , '1'   , ''    , ''    , ''   , ''   , '9e-8'   ], 
-	['x3'  , ''   , '-1' , '1'  , '1'   , ''    , ''    , ''   , ''   , '1e-17'  ], 
-	['x4'  , ''   , ''   , ''   , ''    , '1'   , '-1'  , '1'  , ''   , '3'      ], 
-];
-function tableTest(table) {
-	// let L = new Flong({ valueString: '1' });
-	// let K_a1 = new Flong({ valueString: '9e-8' });
-	// let K_a2 = new Flong({ valueString: '1e-17' });
-	// let n_H2S = new Flong({ valueString: '0.1' });
-	// let n_S2n = new Flong({ valueString: '0.1' });
-	// function f(x1, x2) {
-	// 	return Flong.sub(
-	// 		Flong.mul(
-	// 			Flong.add(Flong.add(x1, x2), x),
-	// 			Flong.sub(x1, x2)
-	// 		),
-	// 		Flong.mul(
-	// 			Flong.sub(n_H2S, x1),
-	// 			Flong.mul(L, K_a1)
-	// 		)
-	// 	);
-	// }
-	// function g(x1, x2) {
-	// 	return Flong.sub(
-	// 		Flong.mul(
-	// 			Flong.add(Flong.add(x1, x2), x),
-	// 			Flong.add(n_S2n, x2)
-	// 		),
-	// 		Flong.mul(
-	// 			Flong.sub(x1, x2),
-	// 			Flong.mul(L, K_a2)
-	// 		)
-	// 	);
-	// }
-	// let [x1, x2] = NumericalAnalysis.newtonsMethodND({
-	// 	functions: [f, g],
-	// 	initialValues: [new Flong({ valueString: '100' }), new Flong({ valueString: '100' })],
-	// });
-	// return Flong.div(
-	// 	Flong.add(Flong.add(x1, x2), x),
-	// 	L
-	// );
+class Chemistry {
+	static parseECT(tableString) {
+		return tableString.split('\n')
+			.filter(row => {
+				return row.replace(/[-|\t ]/g, '').length != 0;
+			})
+			.map(row => row.split('|').filter(value => value !== '').map(value => value.replaceAll(' ', '')));
+	}
+	static calcConcUsingECT(table, isTableString = true) {
+		// use equilibrium constant table to Calculate the concentration of compound
+
+		if (isTableString) {
+			table = this.parseECT(table);
+		}
+		
+		table = table.map(row => [...row]);
+		let title = table.shift(),
+			typeColumn = title.indexOf('type'),
+			KColumn = title.indexOf('(K)');
+		if (typeColumn == -1 || KColumn == -1) {
+			throw new Error('The restriction table must contained the column of "type" and "(k)".');
+		}
+		let independentVariables = {}, // 自變數(未設K值者)
+			dependentVariables = {}, // 應變數(有設K值者)
+			restrictCalculation = []; // 限制計算函數
+		table = table.map(row => row.map((value, columnIndex) => columnIndex !== typeColumn ? new Flong({ valueString: value }) : value));
+		table.forEach(row => {
+			if (Flong.ne(row[KColumn], Flong.ZERO)) {
+				dependentVariables[row[typeColumn]] = Flong.ONE;
+			} else {
+				independentVariables[row[typeColumn]] = Flong.ONE;
+			}
+		});
+		let entriesOfDependentVariables = Object.entries(dependentVariables);
+		table.forEach(row => {
+			if (Flong.ne(row[KColumn], Flong.ZERO)) {
+				restrictCalculation.push((...parameters) => {
+					let dependentVariables = Object.fromEntries(entriesOfDependentVariables.map((pair, index) => [pair[0], parameters[index]]));
+					let compoundAmountCalculation = {}; // 化合物量值計算函數
+					title.map((compoundName, compoundIndex) => {
+						if (compoundIndex !== typeColumn && compoundIndex !== KColumn) {
+							compoundAmountCalculation[compoundName] = () => table
+								.map((row, rowIndex) => Flong.mul(
+									row[compoundIndex],
+									(Flong.ne(row[KColumn], Flong.ZERO) ? dependentVariables : independentVariables)[row[typeColumn]]
+								))
+								.reduce((s, n) => Flong.add(s, n));
+						}
+					});
+
+					let reactants = [];
+					let products = [];
+					row.map((value, columnIndex) => {
+						if (columnIndex !== typeColumn && columnIndex !== KColumn) {
+							if (Flong.gt(value, Flong.ZERO)) {
+								products.push(Flong.pow(compoundAmountCalculation[title[columnIndex]](), value));
+							} else if (Flong.lt(value, Flong.ZERO)) {
+								// reactants.push(Flong.pow(compoundAmountCalculation[title[columnIndex]](), Flong.mul(new Flong({ valueString: '-1' }), value)));
+								reactants.push(Flong.pow(compoundAmountCalculation[title[columnIndex]](), Flong.mul(new Flong({ valueString: '-1' }), value)));
+							}
+						}
+					});
+					return Flong.sub(
+						products.length > 0 ? products.reduce((s, n) => Flong.mul(s, n)) : Flong.ONE,
+						Flong.mul(
+							reactants.length > 0 ? reactants.reduce((s, n) => Flong.mul(s, n)) : Flong.ONE,
+							row[KColumn]
+						)
+					)
+				});
+			}
+		});
+		return (independentVariablesValues) => {
+			for (let independentVariablesName in independentVariablesValues) {
+				independentVariables[independentVariablesName] = independentVariablesValues[independentVariablesName];
+			}
+			NumericalAnalysis.newtonsMethodND({
+				functions: restrictCalculation,
+				initialValues: entriesOfDependentVariables.map(pair => pair[1]),
+			}).map((value, valueIndex) => {
+				dependentVariables[entriesOfDependentVariables[valueIndex][0]] = value;
+			});
+			// console.log(entriesOfDependentVariables.map(pair => pair[1].toString()))
+			// console.log(restrictCalculation[3](...entriesOfDependentVariables.map(pair => pair[1])).toString())
+			let compoundAmount = {};
+			title.map((compoundName, compoundIndex) => {
+				if (compoundIndex !== typeColumn && compoundIndex !== KColumn) {
+					compoundAmount[compoundName] = table
+						.map((row, rowIndex) => Flong.mul(
+							row[compoundIndex],
+							(Flong.ne(row[KColumn], Flong.ZERO) ? dependentVariables : independentVariables)[row[typeColumn]]
+						))
+						.reduce((s, n) => Flong.add(s, n));
+				}
+			});
+			return compoundAmount;
+		}
+	}
 }
-tableTest(tableExample);
 
-// function f(x, y) {
-// 	return Flong.add(
-// 		Flong.sub(
-// 			Flong.sub(
-// 				Flong.mul(x, x),
-// 				Flong.mul(y, y)
-// 			),
-// 			new Flong({ valueString: '9e-9' })
-// 		),
-// 		Flong.mul(
-// 			new Flong({ valueString: '9e-8' }),
-// 			x
-// 		)
-// 	);
-// }
-// function fx(x, y) {
-// 	return Flong.add(
-// 		Flong.mul(new Flong({ valueString: '2' }), x),
-// 		new Flong({ valueString: '9e-8' })
-// 	);
-// }
-// function fy(x, y) {
-// 	return Flong.mul(new Flong({ valueString: '-2' }), y);
-// }
-// function g(x, y) {
-// 	return Flong.add(
-// 		Flong.add(
-// 			Flong.add(
-// 				Flong.mul(x, y),
-// 				Flong.mul(Flong.sub(new Flong({ valueString: '1e-1' }), new Flong({ valueString: '1e-7' })), x)
-// 			),
-// 			Flong.mul(Flong.add(new Flong({ valueString: '1e-1' }), new Flong({ valueString: '1e-7' })), y)
-// 		),
-// 		Flong.mul(y, y)
-// 	);
-// }
-// function gx(x, y) {
-// 	return Flong.add(
-// 		y,
-// 		Flong.sub(new Flong({ valueString: '1e-1' }), new Flong({ valueString: '1e-7' }))
-// 	);
-// }
-// function gy(x, y) {
-// 	return Flong.add(
-// 		Flong.add(
-// 			x,
-// 			Flong.add(new Flong({ valueString: '1e-1' }), new Flong({ valueString: '1e-7' }))
-// 		),
-// 		Flong.mul(new Flong({ valueString: '2' }), y)
-// 	);
-// }
-// console.log(...NumericalAnalysis.newtonsMethod2D({
-// 	f, fx, fy, 
-// 	g, gx, gy, 
-// 	x0: new Flong({ valueString: '9e-8' }), 
-// 	y0: new Flong({ valueString: '1e-17' })
-// }).map(n => n.toString()));
-
-function getH_H2S_mix_HSn(x) {
-	let L = new Flong({ valueString: '1' });
-	let K_a1 = new Flong({ valueString: '9e-8' });
-	let n_H2S = new Flong({ valueString: '0.1' });
-	let n_HSn = new Flong({ valueString: '0.1' });
-	function f(x1) {
-		return Flong.sub(
-			Flong.mul(
-				Flong.add(x1, x),
-				Flong.add(n_HSn, x1)
-			),
-			Flong.mul(
-				Flong.sub(n_H2S, x1),
-				Flong.mul(L, K_a1)
-			)
+function test_functionBased() {
+	function getH_H2S_mix_HSn(x) {
+		let L = new Flong({ valueString: '1' });
+		let K_a1 = new Flong({ valueString: '9e-8' });
+		let n_H2S = new Flong({ valueString: '0.1' });
+		let n_HSn = new Flong({ valueString: '0.1' });
+		function f(x1) {
+			return Flong.sub(
+				Flong.mul(
+					Flong.add(x1, x),
+					Flong.add(n_HSn, x1)
+				),
+				Flong.mul(
+					Flong.sub(n_H2S, x1),
+					Flong.mul(L, K_a1)
+				)
+			);
+		}
+		let x1 = NumericalAnalysis.newtonsMethod1D({
+			f: f,
+			x0: new Flong({ valueString: '1' })
+		});
+		return Flong.div(
+			Flong.add(x1, x),
+			L
 		);
 	}
-	let x1 = NumericalAnalysis.newtonsMethod1D({
-		f: f,
-		x0: new Flong({ valueString: '1' })
-	});
-	return Flong.div(
-		Flong.add(x1, x),
-		L
-	);
-}
 
-function getH_H2S_mix_S2n(x) {
-	let L = new Flong({ valueString: '1' });
-	let K_a1 = new Flong({ valueString: '9e-8' });
-	let K_a2 = new Flong({ valueString: '1e-17' });
-	let n_H2S = new Flong({ valueString: '0.1' });
-	let n_S2n = new Flong({ valueString: '0.1' });
-	function f(x1, x2) {
-		return Flong.sub(
-			Flong.mul(
-				Flong.add(Flong.add(x1, x2), x),
-				Flong.sub(x1, x2)
-			),
-			Flong.mul(
-				Flong.sub(n_H2S, x1),
-				Flong.mul(L, K_a1)
-			)
+	function getH_H2S_mix_S2n(x) {
+		let L = new Flong({ valueString: '1' });
+		let K_a1 = new Flong({ valueString: '9e-8' });
+		let K_a2 = new Flong({ valueString: '1e-17' });
+		let n_H2S = new Flong({ valueString: '0.1' });
+		let n_S2n = new Flong({ valueString: '0.1' });
+		function f(x1, x2) {
+			return Flong.sub(
+				Flong.mul(
+					Flong.add(Flong.add(x1, x2), x),
+					Flong.sub(x1, x2)
+				),
+				Flong.mul(
+					Flong.sub(n_H2S, x1),
+					Flong.mul(L, K_a1)
+				)
+			);
+		}
+		function g(x1, x2) {
+			return Flong.sub(
+				Flong.mul(
+					Flong.add(Flong.add(x1, x2), x),
+					Flong.add(n_S2n, x2)
+				),
+				Flong.mul(
+					Flong.sub(x1, x2),
+					Flong.mul(L, K_a2)
+				)
+			);
+		}
+		let [x1, x2] = NumericalAnalysis.newtonsMethod2D({
+			f: f, g: g,
+			x0: new Flong({ valueString: '100' }),
+			y0: new Flong({ valueString: '100' })
+		});
+		// let [x1, x2] = NumericalAnalysis.newtonsMethodND({
+		// 	functions: [f, g],
+		// 	initialValues: [new Flong({ valueString: '100' }), new Flong({ valueString: '100' })],
+		// });
+		return Flong.div(
+			Flong.add(Flong.add(x1, x2), x),
+			L
 		);
 	}
-	function g(x1, x2) {
-		return Flong.sub(
-			Flong.mul(
-				Flong.add(Flong.add(x1, x2), x),
-				Flong.add(n_S2n, x2)
-			),
-			Flong.mul(
-				Flong.sub(x1, x2),
-				Flong.mul(L, K_a2)
-			)
+
+	function getH_H2O(x) {
+		let L = new Flong({ valueString: '1' });
+		let K_w = new Flong({ valueString: '1e-14' });
+		let n_H2O = new Flong({ valueString: '0.1' });
+		function f(x1) {
+			return Flong.sub(
+				Flong.mul(
+					Flong.add(x1, x),
+					x1
+				),
+				Flong.mul(
+					Flong.sub(n_H2O, x1),
+					Flong.mul(L, K_w)
+				)
+			);
+		}
+		let x1 = NumericalAnalysis.newtonsMethod1D({
+			f: f,
+			x0: new Flong({ valueString: '1' })
+		});
+		return Flong.div(
+			Flong.add(x1, x),
+			L
 		);
 	}
-	let [x1, x2] = NumericalAnalysis.newtonsMethod2D({
-		f: f, g: g,
-		x0: new Flong({ valueString: '100' }),
-		y0: new Flong({ valueString: '100' })
-	});
-	// let [x1, x2] = NumericalAnalysis.newtonsMethodND({
-	// 	functions: [f, g],
-	// 	initialValues: [new Flong({ valueString: '100' }), new Flong({ valueString: '100' })],
-	// });
-	return Flong.div(
-		Flong.add(Flong.add(x1, x2), x),
-		L
-	);
-}
 
-function getH_H2O(x) {
-	let L = new Flong({ valueString: '1' });
-	let K_w = new Flong({ valueString: '1e-14' });
-	let n_H2O = new Flong({ valueString: '0.1' });
-	function f(x1) {
-		return Flong.sub(
-			Flong.mul(
-				Flong.add(x1, x),
-				x1
-			),
-			Flong.mul(
-				Flong.sub(n_H2O, x1),
-				Flong.mul(L, K_w)
-			)
-		);
+	let getH = getH_H2S_mix_S2n;
+	let list = [];
+	for (let i = 0; i < 1000; i++) {
+		list.push([(i / 1000).toString(), getH(new Flong({ valueString: (i / 1000).toString() })).toString()]);
 	}
-	let x1 = NumericalAnalysis.newtonsMethod1D({
-		f: f,
-		x0: new Flong({ valueString: '1' })
-	});
-	return Flong.div(
-		Flong.add(x1, x),
-		L
-	);
+
+	// neg velue count
+	// console.log(list.filter(([x, H]) => H[0] == '-').length)
+
+	// [H+]
+	// console.log(list.map(([x, H]) => `${x}\t${H}\n`).join(''));
+
+	// pH
+	console.log(list.map(([x, H]) => [x, (parseFloat(H) >= 0 ? (-Math.log10(parseFloat(H))) : (14 + Math.log10(-parseFloat(H)))).toString()]).map(([x, H]) => `${x}\t${H}\n`).join(''));
+
+	// p function
+	// console.log(new Array(100).fill(0).map((n, i) => [i/100, i/100]).map(([x, H]) => [x, (parseFloat(H) >= 0 ? (-Math.log10(parseFloat(H))) : (14 + Math.log10(-parseFloat(H)))).toString()]).map(([x, H]) => `${x}\t${H}\n`).join(''));
 }
-
-let getH = getH_H2S_mix_S2n;
-let list = [];
-for (let i = 0; i < 1000; i++) {
-	list.push([(i / 1000).toString(), getH(new Flong({ valueString: (i / 1000).toString() })).toString()]);
-}
-
-// neg velue count
-// console.log(list.filter(([x, H]) => H[0] == '-').length)
-
-// [H+]
-// console.log(list.map(([x, H]) => `${x}\t${H}\n`).join(''));
-
-// pH
-console.log(list.map(([x, H]) => [x, (parseFloat(H) >= 0 ? (-Math.log10(parseFloat(H))) : (14 + Math.log10(-parseFloat(H)))).toString()]).map(([x, H]) => `${x}\t${H}\n`).join(''));
-
-// p function
-// console.log(new Array(100).fill(0).map((n, i) => [i/100, i/100]).map(([x, H]) => [x, (parseFloat(H) >= 0 ? (-Math.log10(parseFloat(H))) : (14 + Math.log10(-parseFloat(H)))).toString()]).map(([x, H]) => `${x}\t${H}\n`).join(''));
 
 // derivative test
 // let a = Flong.ZERO, getA = () => a;
@@ -577,3 +625,55 @@ console.log(list.map(([x, H]) => [x, (parseFloat(H) >= 0 ? (-Math.log10(parseFlo
 // 	[new Flong({ valueString: '-3' }), new Flong({ valueString: '3' }), new Flong({ valueString: '-1' })],
 // ])
 // console.log(A.toString());
+
+function test_tableBased() {
+	// let tableExample = `
+	// | type | H2S | HS- | S2- | H3O+ | OH-  | NaOH | Na+ | H2O | (K)     |
+	// |------|-----|-----|-----|------|------|------|-----|-----|---------|
+	// | init | 0.1 |     | 0.1 | 1e-7 | 1e-7 |      |     |   1 |         |
+	// | Vb   |     |     |     |      |      |  0.1 |     |   1 |         |
+	// | x1   |     |     |     |    1 |    1 |      |     |  -1 | 1.8e-16 |
+	// | x2   |  -1 |   1 |     |    1 |      |      |     |  -1 | 1.62e-9 |
+	// | x3   |     |  -1 |   1 |    1 |      |      |     |  -1 | 1.8e-19 |
+	// | x4   |     |     |     |      |    1 |   -1 |   1 |     |       3 |
+	// `;
+	let tableExample = `
+	| type | H2S | HS- | S2- | H+   | OH-  |(K)    |
+	|------|-----|-----|-----|------|------|-------|
+	| init | 0.1 |     | 0.1 | 1e-7 | 1e-7 |       |
+	| Va   |     |     |     |    1 |      |       |
+	| x1   |     |     |     |    1 |    1 | 1e-14 |
+	| x2   |  -1 |   1 |     |    1 |      |  9e-8 |
+	| x3   |     |  -1 |   1 |    1 |      | 1e-17 |
+	`;
+	// let tableExample = `
+	// | type | H+   | OH-  | NaOH | Na+ | (K)   |
+	// |------|------|------|------|-----|-------|
+	// | init | 1e-7 | 1e-7 |  0.1 |     |       |
+	// | x1   |    1 |    1 |      |     | 1e-14 |
+	// | x2   |      |    1 |   -1 |   1 |     3 |
+	// `;
+
+	let calculateCompoundAmountOfTheTable = Chemistry.calcConcUsingECT(tableExample);
+	let getH = x => {
+		let res = calculateCompoundAmountOfTheTable({
+			'init': new Flong({ valueString: '1' }),
+			'Va': x
+		});
+		// console.log(res);
+		return res['H+'].toString();
+	};
+	let list = [];
+	for (let i = 0; i < 1000; i++) {
+		list.push([(i / 1000).toString(), getH(new Flong({ valueString: (i / 1000).toString() })).toString()]);
+	}
+
+	// [H+]
+	// console.log(list.map(([x, H]) => `${x}\t${H}\n`).join('').replace(/e(.*)/g, '*10^{$1}'));
+
+	// pH
+	console.log(list.map(([x, H]) => [x, (parseFloat(H) >= 0 ? (-Math.log10(parseFloat(H))) : (14 + Math.log10(-parseFloat(H)))).toString()]).map(([x, H]) => `${x}\t${H}\n`).join('').replace(/e(.*)/g, '*10^{$1}'));
+}
+
+// test_functionBased();
+test_tableBased();
