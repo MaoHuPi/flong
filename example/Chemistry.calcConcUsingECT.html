@@ -41,6 +41,10 @@
 		<input type="number" name="independentVariableRangeEnd" id="independentVariableRangeEnd" value="1">
 	</fieldset>
 	<fieldset>
+		<legend>sample num</legend>
+		<input type="number" name="sampleNum" id="sampleNum" value="1000">
+	</fieldset>
+	<fieldset>
 		<legend>output column</legend>
 		<input type="text" name="outputColumn" id="outputColumn" value="pH+">
 	</fieldset>
@@ -56,8 +60,10 @@
 			independentVariableName,
 			independentVariableRangeBegin,
 			independentVariableRangeEnd,
+			sampleNum, 
 			outputColumn
 		}) {
+			sampleNum = parseFloat(sampleNum);
 			independentVariableRangeBegin = parseFloat(independentVariableRangeBegin);
 			independentVariableRangeEnd = parseFloat(independentVariableRangeEnd);
 
@@ -69,8 +75,8 @@
 				return res[outputColumn[0] === 'p' && (outputColumn.replace('p', '') in res) ? outputColumn.replace('p', '') : outputColumn].toString();
 			};
 			let list = [];
-			for (let i = 0; i < 1000; i++) {
-				let x = independentVariableRangeBegin + (independentVariableRangeEnd - independentVariableRangeBegin) * (i / 1000);
+			for (let i = 0; i < sampleNum; i++) {
+				let x = independentVariableRangeBegin + (independentVariableRangeEnd - independentVariableRangeBegin) * (i / sampleNum);
 				list.push([x.toString(), getRes(new Flong({ valueString: x.toString() })).toString()]);
 			}
 
@@ -118,6 +124,7 @@
 				independentVariableName: 'independentVariableName',
 				independentVariableRangeBegin: 'independentVariableRangeBegin',
 				independentVariableRangeEnd: 'independentVariableRangeEnd',
+				sampleNum: 'sampleNum',
 				outputColumn: 'outputColumn'
 			}).map(([k, v]) => [k, document.getElementById(v).value]));
 			console.table(parameters);
