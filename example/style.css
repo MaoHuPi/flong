@@ -1,0 +1,75 @@
+* {
+	margin: 0px;
+	padding: 0px;
+	font-family: 'Courier New', Courier, monospace;
+	width: 100%;
+	color: white;
+	font-weight: 200;
+	text-shadow: 0px 0px 10px black;
+	box-sizing: border-box;
+	border: none;
+	outline: none;
+}
+
+*::selection {
+	background-color: #ffbe6e;
+	color: black;
+	text-shadow: 0px 0px 10px #ffd6a3;
+}
+
+html {
+	--backgroundColor: #352f27;
+}
+
+body {
+	margin: 0px;
+	padding: 30px;
+	background-color: var(--backgroundColor);
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+	font-weight: 900;
+	margin: 10px 0px 20px 0px;
+}
+
+fieldset,
+button {
+	margin: 5px 0px 10px 0px;
+	padding: 20px;
+	font-size: 20px;
+	font-weight: 600;
+	background-color: #414141;
+	border-style: solid;
+	border-radius: 5px;
+	border-width: 2px;
+	border-color: #ffd6a3;
+}
+
+legend {
+	font-weight: 600;
+	padding: 0px 10px 0px 10px;
+}
+
+fieldset :where(input, textarea, select, button) {
+	padding: 5px;
+	border-style: solid;
+	border-radius: 5px;
+	border-width: 2px;
+	border-color: #ffd6a388;
+}
+
+textarea {
+	height: 200px;
+}
+
+input,
+textarea,
+select,
+button {
+	background-color: #4a3b28;
+}

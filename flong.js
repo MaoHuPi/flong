@@ -392,20 +392,26 @@ class NumericalAnalysis {
 }
 
 class Chemistry {
-	static parseECT(tableString) {
-		return tableString.split('\n')
-			.filter(row => {
-				return row.replace(/[-|\t ]/g, '').length != 0;
-			})
-			.map(row => row.split('|').filter(value => value !== '').map(value => value.replaceAll(' ', '')));
+	static parseECT(tableString, tableType) {
+		switch (tableType) {
+			case 'markdown':
+				return tableString.split('\n')
+					.filter(row => {
+						return row.replace(/[-|\t ]/g, '').length != 0;
+					})
+					.map(row => row.split('|').filter(value => value !== '').map(value => value.replaceAll(' ', '')));
+			case 'tsv':
+				return tableString.split('\n')
+					.map(row => row.split('\t').filter(value => value !== '').map(value => value.replaceAll(' ', '')));
+		}
 	}
-	static calcConcUsingECT(table, isTableString = true) {
+	static calcConcUsingECT(table, tableType = false) {
 		// use equilibrium constant table to Calculate the concentration of compound
 
-		if (isTableString) {
-			table = this.parseECT(table);
+		if (tableType) {
+			table = this.parseECT(table, tableType);
 		}
-		
+
 		table = table.map(row => [...row]);
 		let title = table.shift(),
 			typeColumn = title.indexOf('type'),
@@ -654,15 +660,21 @@ function test_tableBased() {
 	// | x2   |      |    1 |   -1 |   1 |     3 |
 	// `;
 
-	let calculateCompoundAmountOfTheTable = Chemistry.calcConcUsingECT(tableExample);
+	let calculateCompoundAmountOfTheTable = Chemistry.calcConcUsingECT(tableExample, 'markdown');
 	let getH = x => {
 		let res = calculateCompoundAmountOfTheTable({
 			'init': new Flong({ valueString: '1' }),
 			'Va': x
 		});
-		// console.log(res);
 		return res['H+'].toString();
 	};
+	// let getH = x => {
+	// 	let res = calculateCompoundAmountOfTheTable({
+	// 		'init': new Flong({ valueString: '1' }),
+	// 		'Vb': x
+	// 	});
+	// 	return parseFloat(res['H3O+'].toString()) / parseFloat(res['H2O'].toString());
+	// };
 	let list = [];
 	for (let i = 0; i < 1000; i++) {
 		list.push([(i / 1000).toString(), getH(new Flong({ valueString: (i / 1000).toString() })).toString()]);
@@ -676,4 +688,4 @@ function test_tableBased() {
 }
 
 // test_functionBased();
-test_tableBased();
+// test_tableBased();

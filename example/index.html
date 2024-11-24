@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Flong Example</title>
+	<link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+	<h1>Flong Example</h1>
+	<p>MaoHuPi (c) 2024</p>
+	<div id="linkBox"></div>
+	<script>
+		let subPages = [
+			{
+				title: 'Chemistry.calcConcUsingECT',
+				url: 'Chemistry.calcConcUsingECT.html'
+			}
+		];
+		let linkBox = document.getElementById('linkBox');
+		subPages.forEach(subPage => {
+			let row = document.createElement('div'),
+				link = document.createElement('a');
+			row.appendChild(link);
+			link.innerText = subPage.title;
+			link.href = subPage.url;
+			linkBox.appendChild(row);
+		});
+	</script>
+</body>
+
+</html>

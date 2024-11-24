@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Flong Example - Chemistry.calcConcUsingECT</title>
+	<link rel="stylesheet" href="style.css">
+	<script src="../flong.js"></script>
+</head>
+
+<body>
+	<h1>Flong Example - Chemistry.calcConcUsingECT</h1>
+	<div><a href="index.html">&lt; back</a></div>
+	<fieldset>
+		<legend>table content</legend>
+		<textarea name="table" id="table">
+| type | H2S | HS- | S2- | H+   | OH-  |(K)    |
+|------|-----|-----|-----|------|------|-------|
+| init | 0.1 |     | 0.1 | 1e-7 | 1e-7 |       |
+| Va   |     |     |     |    1 |      |       |
+| x1   |     |     |     |    1 |    1 | 1e-14 |
+| x2   |  -1 |   1 |     |    1 |      |  9e-8 |
+| x3   |     |  -1 |   1 |    1 |      | 1e-17 |</textarea>
+		<p>* When the value of the cell is empty, please type in a space or zero.</p>
+	</fieldset>
+	<fieldset>
+		<legend>table type</legend>
+		<select name="tableType" id="tableType">
+			<option value="markdown">Markdown</option>
+			<option value="tsv">TSV</option>
+		</select>
+	</fieldset>
+	<fieldset>
+		<legend>independent variable name</legend>
+		<input type="text" name="independentVariableName" id="independentVariableName" value="Va"></input>
+	</fieldset>
+	<fieldset>
+		<legend>independent variable range</legend>
+		<input type="number" name="independentVariableRangeBegin" id="independentVariableRangeBegin" value="0">
+		<input type="number" name="independentVariableRangeEnd" id="independentVariableRangeEnd" value="1">
+	</fieldset>
+	<fieldset>
+		<legend>output column</legend>
+		<input type="text" name="outputColumn" id="outputColumn" value="pH+">
+	</fieldset>
+	<button id="submit">submit</button>
+	<fieldset>
+		<legend>output</legend>
+		<textarea name="output" id="output"></textarea>
+	</fieldset>
+	<script>
+		function tableBasedECTCalculation({
+			table,
+			tableType,
+			independentVariableName,
+			independentVariableRangeBegin,
+			independentVariableRangeEnd,
+			outputColumn
+		}) {
+			independentVariableRangeBegin = parseFloat(independentVariableRangeBegin);
+			independentVariableRangeEnd = parseFloat(independentVariableRangeEnd);
+
+			let calculateCompoundAmountOfTheTable = Chemistry.calcConcUsingECT(table, tableType);
+			let getRes = x => {
+				let res = calculateCompoundAmountOfTheTable({
+					[independentVariableName]: x
+				});
+				return res[outputColumn[0] === 'p' && (outputColumn.replace('p', '') in res) ? outputColumn.replace('p', '') : outputColumn].toString();
+			};
+			let list = [];
+			for (let i = 0; i < 1000; i++) {
+				let x = independentVariableRangeBegin + (independentVariableRangeEnd - independentVariableRangeBegin) * (i / 1000);
+				list.push([x.toString(), getRes(new Flong({ valueString: x.toString() })).toString()]);
+			}
+
+			if (outputColumn[0] === 'p') {
+				// pH
+				return (list.map(([x, H]) => [x, (parseFloat(H) >= 0 ? (-Math.log10(parseFloat(H))) : (14 + Math.log10(-parseFloat(H)))).toString()]).map(([x, H]) => `${x}\t${H}\n`).join('').replace(/e(.*)/g, '*10^{$1}'));
+			} else {
+				// [H+]
+				return (list.map(([x, H]) => `${x}\t${H}\n`).join('').replace(/e(.*)/g, '*10^{$1}'));
+			}
+
+		}
+
+		function sleep(miniSec) {
+			return new Promise((resolve, reject) => {
+				setTimeout(resolve, miniSec);
+			});
+		}
+
+		function tabPress(e) {
+			if (e.key == 'Tab') {
+				e.preventDefault();
+				var start = this.selectionStart;
+				var end = this.selectionEnd;
+
+				// set textarea value to: text before caret + tab + text after caret
+				this.value = this.value.substring(0, start) +
+					"\t" + this.value.substring(end);
+
+				// put caret at right position again
+				this.selectionStart =
+					this.selectionEnd = start + 1;
+			}
+		}
+		document.querySelectorAll('textarea').forEach(textarea => {
+			textarea.addEventListener('keydown', tabPress);
+		});
+
+		document.getElementById('submit').addEventListener('click', async () => {
+			document.getElementById('submit').innerText = 'calculating...';
+
+			let parameters = Object.fromEntries(Object.entries({
+				table: 'table',
+				tableType: 'tableType',
+				independentVariableName: 'independentVariableName',
+				independentVariableRangeBegin: 'independentVariableRangeBegin',
+				independentVariableRangeEnd: 'independentVariableRangeEnd',
+				outputColumn: 'outputColumn'
+			}).map(([k, v]) => [k, document.getElementById(v).value]));
+			console.table(parameters);
+			await sleep(10);
+			document.getElementById('output').value = tableBasedECTCalculation(parameters);
+
+			document.getElementById('submit').innerText = 'submit';
+		});
+	</script>
+</body>
+
+</html>
